@@ -1,16 +1,26 @@
 import express from 'express';
 import { Telegraf, Markup } from 'telegraf';
+import 'dotenv/config'; // Важно для загрузки .env файла локально
 
-// Твой токен
-const BOT_TOKEN = '8093456159:AAGseBkVBC6M6oKE8cXp7IT5ZCqPQNrD1j0';
+// Получаем переменные окружения
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const APP_URL = process.env.APP_URL; // Ссылка на твой Netlify сайт
 
-// Ссылка-заглушка. Когда задеплоишь фронтенд на Netlify/Render,
-// заменишь эту строчку на реальный адрес (например: https://bullrun-x.onrender.com)
-const APP_URL = 'https://bullrun-x.netlify.app'; 
+// Проверка токена и ссылки
+if (!BOT_TOKEN) {
+  throw new Error('BOT_TOKEN is not set. Please set it in .env or as environment variable.');
+}
+if (!APP_URL) {
+  // Локальная заглушка для разработки
+  console.warn('APP_URL is not set. Using a default placeholder. Set APP_URL for production.');
+  // Можно подставить локальный vite URL для теста, например:
+  // APP_URL = 'http://localhost:5173'; 
+}
 
 const bot = new Telegraf(BOT_TOKEN);
 const app = express();
-const PORT = process.env.PORT || 3000;
+// Render устанавливает PORT, иначе используем 3000
+const PORT = process.env.PORT || 3000; 
 
 // === ЛОГИКА БОТА ===
 
@@ -18,31 +28,12 @@ bot.start((ctx) => {
   const userName = ctx.from.first_name || 'Trader';
   
   ctx.replyWithPhoto(
-    // Красивое превью (можно поменять ссылку на свою картинку)
     'https://images.unsplash.com/photo-1611974765270-ca1258634369?q=80&w=1000&auto=format&fit=crop', 
     {
-      caption: `
-<b>🚀 BullRun X: Terminal Ready</b>
-
-Привет, <b>${userName}</b>! Добро пожаловать в элитный симулятор трейдинга.
-
-💎 <b>Баланс демо-счета:</b> $10,000
-📊 <b>Котировки:</b> Real-time симуляция
-⚡️ <b>Платформа:</b> Telegram Mini App
-
-Ты готов сделать свои первые X-ы или сольешь депозит? Рынок не прощает ошибок.
-
-👇 <b>ЖМИ НА КНОПКУ ДЛЯ ЗАПУСКА</b>
-      `,
+      caption: `<b>🚀 BullRun X: Terminal Ready</b>\n\nПривет, <b>${userName}</b>! Готов к торговле?`,
       parse_mode: 'HTML',
       ...Markup.inlineKeyboard([
-        [
-          Markup.button.webApp('📈 ОТКРЫТЬ ТЕРМИНАЛ', APP_URL)
-        ],
-        [
-          Markup.button.callback('📚 Как играть?', 'help'),
-          Markup.button.url('👥 Канал', 'https://t.me/telegram')
-        ]
+        [Markup.button.webApp('📈 ОТКРЫТЬ ТЕРМИНАЛ', APP_URL)]
       ])
     }
   );
@@ -61,23 +52,31 @@ bot.action('help', (ctx) => {
 
 // Запуск бота
 bot.launch().then(() => {
-  console.log('🤖 Bot is running...');
+  console.log('🤖 Bot started successfully.');
 }).catch((err) => {
-  console.error('Bot launch error:', err);
+  console.error('Failed to launch bot:', err);
 });
 
 // === ВЕБ-СЕРВЕР (Для Render) ===
+// Отдаем статику из vite build для Render (если нужно, но для мини-приложения не обязательно)
+// app.use(express.static('dist')); 
 
-// Простой endpoint, чтобы Render видел, что сервер жив
 app.get('/', (req, res) => {
-  res.send('BullRun X Server is Running! Bot status: Online.');
+  res.send('BullRun X Server is running. Bot is active.');
 });
 
-// Запуск Express сервера
 app.listen(PORT, () => {
-  console.log(`🌍 Server is listening on port ${PORT}`);
+  console.log(`🌍 Server listening on port ${PORT}`);
 });
 
-// Мягкая остановка
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+// Обработка остановки
+process.once('SIGINT', () => {
+  console.log('SIGINT received. Stopping bot and server...');
+  bot.stop('SIGINT');
+  process.exit(0);
+});
+process.once('SIGTERM', () => {
+  console.log('SIGTERM received. Stopping bot and server...');
+  bot.stop('SIGTERM');
+  process.exit(0);
+});
