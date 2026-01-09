@@ -1,17 +1,18 @@
 export const theme = {
   colors: {
-    background: '#000000',
-    surface: '#0a0a0a',
-    surfaceGlossy: 'linear-gradient(145deg, #1a1a1a 0%, #0d0d0d 100%)',
-    gold: '#FFD700',
-    goldDark: '#B8860B',
-    neonGreen: '#39FF14',
-    neonRed: '#FF073A',
-    gridLine: 'rgba(255, 215, 0, 0.05)',
+    background: '#131722', // Основной фон (как в TradingView/PocketOption)
+    surface: '#1e222d',    // Цвет панелей
+    textPrimary: '#d1d4dc',
+    textSecondary: '#787b86',
+    call: '#26a69a',       // Зеленый (Вверх)
+    put: '#ef5350',        // Красный (Вниз)
+    grid: '#2a2e39',
+    chartUp: '#26a69a',
+    chartDown: '#ef5350',
   },
   shadows: {
-    gold: '0 0 20px rgba(255, 215, 0, 0.3)',
-    goldStrong: '0 0 30px rgba(255, 215, 0, 0.5)',
-    neonGreen: '0 0 15px rgba(57, 255, 20, 0.4)',
+    panel: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+    callGlow: '0 0 15px rgba(38, 166, 154, 0.4)',
+    putGlow: '0 0 15px rgba(239, 83, 80, 0.4)',
   }
 };
