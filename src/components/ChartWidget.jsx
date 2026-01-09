@@ -1,106 +1,59 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
-import { theme } from '../styles/theme';
+import { createChart, ColorType } from 'lightweight-charts';
 
-export const ChartWidget = ({ currentPrice }) => {
+export const ChartWidget = ({ candles, currentPrice }) => {
   const chartContainerRef = useRef();
   const chartRef = useRef();
   const seriesRef = useRef();
 
   useEffect(() => {
-    // 1. Настройка графика (Профессиональный конфиг)
+    // Настройки графика "как у профи"
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: theme.colors.background },
-        textColor: theme.colors.textSecondary,
+        background: { type: ColorType.Solid, color: '#131722' }, // Темно-синий фон
+        textColor: '#d1d4dc',
+      },
+      grid: {
+        vertLines: { color: 'rgba(42, 46, 57, 0.2)' }, // Очень тусклая сетка
+        horzLines: { color: 'rgba(42, 46, 57, 0.2)' },
       },
       width: chartContainerRef.current.clientWidth,
-      height: chartContainerRef.current.clientHeight || 400,
-      
-      // Включаем сетку, но делаем её тусклой
-      grid: {
-        vertLines: { color: 'rgba(42, 46, 57, 0.5)' },
-        horzLines: { color: 'rgba(42, 46, 57, 0.5)' },
-      },
-      
-      // Настройки перекрестия (курсора)
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: {
-          width: 1,
-          color: 'rgba(224, 227, 235, 0.1)',
-          style: 3,
-        },
-        horzLine: {
-          visible: true,
-          labelVisible: true,
-        },
-      },
-
-      // Самое важное: ЗУМ и СКРОЛЛ
+      height: chartContainerRef.current.clientHeight,
       timeScale: {
-        borderColor: 'rgba(197, 203, 206, 0.1)',
         timeVisible: true,
-        secondsVisible: true,
-        rightOffset: 12,    // Отступ справа, чтобы было видно свечу
-        barSpacing: 12,     // Ширина свечи (чем больше, тем ближе зум)
-        minBarSpacing: 3,   // Минимальный зум (чтобы не сжалось в нитку)
-        fixLeftEdge: true,  // Не даем уйти в пустоту слева
+        secondsVisible: false,
+        borderColor: '#2B2B43',
+        barSpacing: 10, // Ширина свечей
       },
-      
-      // Кинетическая прокрутка (инерция как на айфоне)
-      kineticScroll: {
-        touch: true,
-        mouse: true,
+      rightPriceScale: {
+        borderColor: '#2B2B43',
       },
-      
-      // Скрываем логотип TradingView (если лицензия позволяет, для демо ок)
-      attributionLogo: false, 
+      crosshair: {
+        mode: 1, // CrosshairMode.Normal
+        vertLine: {
+          style: 3,
+          labelBackgroundColor: '#2B2B43',
+        },
+      },
     });
 
-    // 2. Добавляем серию свечей
-    const candleSeries = chart.addCandlestickSeries({
-      upColor: theme.colors.chartUp,
-      downColor: theme.colors.chartDown,
+    const candlestickSeries = chart.addCandlestickSeries({
+      upColor: '#26a69a',        // Зеленый
+      downColor: '#ef5350',      // Красный
       borderVisible: false,
-      wickUpColor: theme.colors.chartUp,
-      wickDownColor: theme.colors.chartDown,
-      priceLineVisible: true, // Линия текущей цены
-      priceLineWidth: 1,
-      priceLineColor: theme.colors.call,
+      wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350',
     });
-
-    // 3. Генерируем начальную историю (последние 100 свечей), чтобы график не был пустым
-    const initialData = [];
-    let price = currentPrice || 1000;
-    let time = Math.floor(Date.now() / 1000) - 100 * 60; // 100 минут назад
-
-    for (let i = 0; i < 100; i++) {
-      const volatility = 0.002;
-      const change = price * (Math.random() - 0.5) * volatility;
-      const open = price;
-      const close = price + change;
-      const high = Math.max(open, close) + Math.abs(change) * Math.random();
-      const low = Math.min(open, close) - Math.abs(change) * Math.random();
-      
-      initialData.push({ time, open, high, low, close });
-      time += 60; // Следующая минута
-      price = close;
-    }
-    
-    candleSeries.setData(initialData);
 
     chartRef.current = chart;
-    seriesRef.current = candleSeries;
+    seriesRef.current = candlestickSeries;
 
-    // Ресайз при изменении окна
+    // Ресайз
     const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({ 
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight 
-        });
-      }
+      chart.applyOptions({ 
+        width: chartContainerRef.current.clientWidth,
+        height: chartContainerRef.current.clientHeight
+      });
     };
     window.addEventListener('resize', handleResize);
 
@@ -108,36 +61,37 @@ export const ChartWidget = ({ currentPrice }) => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, []); // Запускаем 1 раз при старте
+  }, []);
 
-  // 4. Обновление цены в реальном времени
+  // Обновление данных при приходе новых свечей с Бинанса
   useEffect(() => {
-    if (seriesRef.current && currentPrice) {
-      const now = Math.floor(Date.now() / 1000);
-      // Округляем до текущей минуты, чтобы "строить" одну свечу, пока минута не пройдет
-      // Для демо упростим: каждый тик - новая секунда
-      
-      // Получаем последнюю свечу
-      // В реальном проекте тут сложнее логика накопления свечи
-      const lastPrice = currentPrice;
-      
-      seriesRef.current.update({
-        time: now,
-        open: lastPrice,
-        high: lastPrice + 0.0005,
-        low: lastPrice - 0.0005,
-        close: lastPrice,
-      });
+    if (seriesRef.current && candles.length > 0) {
+      // Если загрузили историю первый раз
+      if (candles.length > 1 && seriesRef.current.data().length < 2) {
+        seriesRef.current.setData(candles);
+      } else {
+        // Обновляем только последнюю свечу в реальном времени
+        const lastCandle = candles[candles.length - 1];
+        seriesRef.current.update(lastCandle);
+      }
     }
-  }, [currentPrice]);
+  }, [candles]);
 
   return (
-    <div className="w-full h-full relative group">
-      <div 
-        ref={chartContainerRef} 
-        className="w-full h-full"
-        style={{ minHeight: '100%' }} // Важно для заполнения родителя
-      />
+    <div className="w-full h-full relative">
+      <div ref={chartContainerRef} className="w-full h-full" />
+      
+      {/* Плашка с текущей ценой */}
+      <div className={`absolute top-4 left-4 px-3 py-2 rounded shadow-lg z-10 
+        ${candles.length > 0 && candles[candles.length-1].close >= candles[candles.length-1].open ? 'bg-[#26a69a]' : 'bg-[#ef5350]'}`}>
+        <div className="text-white font-bold text-lg flex items-center gap-2">
+          <span>BTC/USDT</span>
+          <span className="bg-white bg-opacity-20 px-1 rounded text-sm">82%</span>
+        </div>
+        <div className="text-white font-mono text-xl font-bold tracking-wider">
+            {currentPrice ? currentPrice.toFixed(2) : 'Loading...'}
+        </div>
+      </div>
     </div>
   );
 };
