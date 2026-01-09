@@ -1,92 +1,86 @@
-import React, { useState } from 'react';
-import { useGameStore } from './hooks/useGameStore';
-import { useFakeActivity } from './hooks/useFakeActivity';
-import { theme } from './styles/theme';
+import React, { useState, useEffect } from 'react';
+import { useBinanceData } from './hooks/useBinanceData'; // Новый хук
 import { ChartWidget } from './components/ChartWidget';
 import { TradePanel } from './components/TradePanel';
 import { Zap, Menu, User } from 'lucide-react';
+import { theme } from './styles/theme';
 
 function App() {
-  const store = useGameStore();
-  const [isMenuOpen, setMenuOpen] = useState(false);
-
-  // Обработчики симуляции
-  const handlePriceWiggle = (impact) => {
-    store.setBullPrice(prev => Math.max(0.0001, prev * (1 + impact)));
-  };
+  const { currentPrice, candles } = useBinanceData(); // Данные с Бинанса
+  const [balance, setBalance] = useState(10000);
   
-  const handleMassiveTrade = (activity) => {
-    console.log("Whale Alert:", activity);
-  };
-
-  // Запускаем бота активности
-  useFakeActivity(handlePriceWiggle, handleMassiveTrade);
+  // Инициализация Telegram
+  useEffect(() => {
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+      window.Telegram.WebApp.setHeaderColor('#131722');
+      window.Telegram.WebApp.setBackgroundColor('#131722');
+    }
+  }, []);
 
   const handleTrade = (direction) => {
-    // Простая логика сделки
-    console.log(`Trade ${direction} executed`);
-    store.setBalance(prev => prev - 100); // Списываем ставку
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+    }
+    console.log(`Open ${direction} at ${currentPrice}`);
+    // Пока просто списываем визуально
+    setBalance(prev => prev - 100);
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: theme.colors.background }}>
+    <div className="flex flex-col h-screen overflow-hidden bg-[#131722] text-white font-sans">
       
-      {/* Верхний Хедер */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-gray-800" style={{ background: theme.colors.surface }}>
+      {/* Хедер (Стиль Pocket Option) */}
+      <header className="h-14 min-h-[56px] flex items-center justify-between px-3 border-b border-[#2a2e39] bg-[#1c2030] z-20">
         <div className="flex items-center gap-3">
-          <button className="p-2 hover:bg-gray-800 rounded">
-            <Menu className="text-gray-400" />
+          <button className="p-1.5 hover:bg-[#2a2e39] rounded transition">
+            <Menu className="text-gray-400" size={24} />
           </button>
-          <div className="flex items-center gap-2 font-bold text-white">
-            <div className="bg-blue-600 p-1 rounded">
-              <Zap size={16} fill="white" />
+          <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
+            <div className="bg-blue-600 p-1 rounded-lg shadow-lg shadow-blue-500/20">
+              <Zap size={18} fill="white" className="text-white" />
             </div>
-            <span>Pocket Clone</span>
-          </div>
-          
-          {/* Выбор актива */}
-          <div className="hidden md:flex ml-4 gap-2">
-            <button className="px-3 py-1 bg-[#2a2e39] rounded text-white text-sm hover:bg-gray-700 transition">
-              BTC/USD <span className="text-green-400 ml-1">92%</span>
-            </button>
-            <button className="px-3 py-1 bg-transparent rounded text-gray-400 text-sm hover:bg-gray-800 transition">
-              ETH/USD <span className="text-green-400 ml-1">85%</span>
-            </button>
+            <span className="hidden sm:block">PO Trade</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="bg-[#26a69a] px-3 py-1 rounded text-white font-bold text-sm">
-            ДЕМ СЧЕТ
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex flex-col items-end mr-2">
+            <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Demo Account</span>
+            <span className="text-[#26a69a] font-bold font-mono text-lg leading-none">
+              ${balance.toLocaleString()}
+            </span>
           </div>
-          <div className="text-white font-mono font-bold">
-            ${store.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          
+          <div className="w-9 h-9 bg-[#2a2e39] rounded-lg flex items-center justify-center border border-[#363a45]">
+            <User size={18} className="text-gray-300" />
           </div>
-          <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center">
-            <User size={16} className="text-gray-300" />
-          </div>
+          
+          <button className="bg-[#26a69a] hover:bg-[#2bbbad] text-white font-bold py-1.5 px-4 rounded-lg text-sm shadow-[0_4px_10px_rgba(38,166,154,0.3)] transition-all active:scale-95 hidden sm:block">
+            DEPOSIT
+          </button>
         </div>
       </header>
 
-      {/* Основная рабочая область */}
-      <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+      {/* Основная область */}
+      <main className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
         
-        {/* График (занимает всё свободное место) */}
+        {/* График - занимает всё пространство */}
         <div className="flex-1 relative bg-[#131722]">
-          <ChartWidget currentPrice={store.bullPrice} />
-          
-          {/* Плавающее инфо об активе на мобилке */}
-          <div className="absolute top-4 left-4 md:hidden bg-[#2a2e39] p-2 rounded z-10 opacity-90">
-            <div className="text-white font-bold">BTC/USD (OTC)</div>
-            <div className="text-green-400 text-sm">+92%</div>
-          </div>
+            {/* Если данных нет - показываем лоадер */}
+            {candles.length === 0 ? (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+                    Connecting to Binance...
+                </div>
+            ) : (
+                <ChartWidget candles={candles} currentPrice={currentPrice} />
+            )}
         </div>
 
-        {/* Панель управления (сбоку на ПК, снизу на телефоне) */}
+        {/* Панель управления */}
         <TradePanel 
-          balance={store.balance}
-          leverage={store.leverage}
-          setLeverage={store.setLeverage}
+          balance={balance}
           onTrade={handleTrade}
         />
 
